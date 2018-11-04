@@ -1,6 +1,6 @@
 package me.paul.luminescence
 
-import LoopUtils._
+import LoopUtil._
 
 import java.io.{File, IOException}
 

@@ -11,6 +11,6 @@ object Parameters {
     val IMAGE_FILE_FORMAT: String = "png"
 
     val FILENAME: String = s"$VERSION-${IMAGE_WIDTH}x$IMAGE_HEIGHT"
-    val FILEPATH: File = new File(Parameters.getClass.getProtectionDomain.getCodeSource.getLocation.getFile)
+    val FILEPATH: File = new File(new File(Parameters.getClass.getProtectionDomain.getCodeSource.getLocation.getFile).getParent)
 
 }
