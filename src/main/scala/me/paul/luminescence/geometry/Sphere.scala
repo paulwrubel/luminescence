@@ -1,8 +1,8 @@
 package me.paul.luminescence.geometry
 
-import javafx.scene.paint.Color
+import me.paul.luminescence.shading.ShadedColor
 
-class Sphere(val center: Point3D, val radius: Double, val color: Color) {
+class Sphere(val center: Point3D, val radius: Double, val color: ShadedColor) extends Geometry {
 
     def diameter: Double = {
         radius * 2
@@ -37,6 +37,6 @@ class Sphere(val center: Point3D, val radius: Double, val color: Color) {
 
 object Sphere {
 
-    def apply(c: Point3D, r: Double, col: Color): Sphere = new Sphere(c, r, col)
+    def apply(c: Point3D, r: Double, sc: ShadedColor): Sphere = new Sphere(c, r, sc)
 
 }
