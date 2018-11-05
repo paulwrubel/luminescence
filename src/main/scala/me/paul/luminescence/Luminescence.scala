@@ -6,6 +6,7 @@ import javafx.embed.swing.SwingFXUtils
 import javafx.scene.image.WritableImage
 import javafx.scene.paint.Color
 import javax.imageio.ImageIO
+import javax.swing.text.AttributeSet.ParagraphAttribute
 import me.paul.luminescence.LoopUtil._
 import me.paul.luminescence.geometry._
 import me.paul.luminescence.shading.{ShadedColor, ShadingUtil}
@@ -53,15 +54,20 @@ object Luminescence {
                             val spherePoint = rayIntoScene.pointAt(t._2)
                             val shadowRay = Ray3D(spherePoint, spherePoint to lightLocation)
 
-                            val ambientColor = ShadingUtil.ambient(s.color, 0.1)
+                            val ambientColor = ShadingUtil.ambient(s.color, Parameters.AMBIENT_LEVEL)
 
                             getClosestCollision(shadowRay, geometryList.filter(_ != s)) match {
                                 case Some(_)=>
-                                    println(s"putting a shadow on $s")
                                     ambientColor
                                 case _ =>
-                                    val diffuseColor = ShadingUtil.diffuse(s.color, s.center to spherePoint, spherePoint to lightLocation)
-                                    diffuseColor + ambientColor
+                                    // todo shininess as a property of an object, not global
+                                    // todo light as an object with a color, not global
+                                    // todo mix shaders correctly (weights sum = 1? may not)
+                                    // todo specular is flimsy, perhaps a casted ray off to check the color to do spec for? color of light is sketchy at best
+                                    // todo best option is likely to convert light to geom object, and that will take awhile
+                                    val diffuseColor = ShadingUtil.diffuse(Parameters.DIFFUSE_WEIGHT, s.color, s.center to spherePoint, spherePoint to lightLocation)
+                                    val specularColor = ShadingUtil.specular(Parameters.SPECULAR_WEIGHT, ShadedColor(Color.WHITE), s.center to spherePoint, spherePoint to lightLocation, spherePoint to eyeLocation, Parameters.SPECULAR_SHININESS)
+                                    ambientColor + diffuseColor + specularColor
                             }
                         case _ =>
                             Parameters.BACKGROUND_COLOR

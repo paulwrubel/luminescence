@@ -18,4 +18,9 @@ object Parameters {
 
     val BACKGROUND_COLOR: ShadedColor = ShadedColor(Color.TRANSPARENT)
 
+    val AMBIENT_LEVEL: Double = 0.1
+    val DIFFUSE_WEIGHT: Double = 1.0
+    val SPECULAR_WEIGHT: Double = 1.0
+    val SPECULAR_SHININESS: Int = 40
+
 }
