@@ -6,10 +6,9 @@ import javafx.embed.swing.SwingFXUtils
 import javafx.scene.image.WritableImage
 import javafx.scene.paint.Color
 import javax.imageio.ImageIO
-import javax.swing.text.AttributeSet.ParagraphAttribute
 import me.paul.luminescence.LoopUtil._
 import me.paul.luminescence.geometry._
-import me.paul.luminescence.shading.{ShadedColor, ShadingUtil}
+import me.paul.luminescence.shading.{Material, RayHit, ShadingUtil}
 
 object Luminescence {
 
@@ -22,7 +21,7 @@ object Luminescence {
 
         val eyeLocation = viewportCenterLocation + Vector3D(0, 0, 5)
 
-        val lightLocation = viewportCenterLocation + Vector3D(-10, 10, 0)
+        val light = Sphere(viewportCenterLocation + Vector3D(-5, 5, -10), 1, Material(Vector3D.ZERO, Vector3D(100, 100, 100)))
 
         val nw = viewportCenterLocation + Vector3D(-5, 2.5, 0)
         val se = viewportCenterLocation + Vector3D(5, -2.5, 0)
@@ -31,10 +30,11 @@ object Luminescence {
         val planeHeight: Double = (nw to se).y.abs
 
         val geometryList: List[Geometry] = List(
-            Sphere(viewportCenterLocation + Vector3D(5, 0, -20), 1, ShadedColor(Color.RED)),
-            Sphere(viewportCenterLocation + Vector3D(2, -2, -12), 2, ShadedColor(Color.BLUE)),
-            Sphere(viewportCenterLocation + Vector3D(0, 0, -9), 1, ShadedColor(Color.AQUA)),
-            Sphere(viewportCenterLocation + Vector3D(1, 0, -30), 5, ShadedColor(Color.GREEN))
+            light,
+            Sphere(viewportCenterLocation + Vector3D(5, 0, -20), 1, Material.light(Vector3D(Color.RED))),
+            Sphere(viewportCenterLocation + Vector3D(2, -2, -12), 2, Material(Vector3D(Color.BLUE), Vector3D.ZERO)),
+            Sphere(viewportCenterLocation + Vector3D(0, 0, -9), 1, Material.light(Vector3D(Color.AQUA))),
+            Sphere(viewportCenterLocation + Vector3D(1, 0, -30), 5, Material(Vector3D(Color.GREEN), Vector3D.ZERO))
         )
 
 
@@ -45,36 +45,23 @@ object Luminescence {
                     nw + (Vector3D.RIGHT * x * planeWidth / Parameters.IMAGE_WIDTH) + (-Vector3D.UP * y * planeHeight / Parameters.IMAGE_HEIGHT) +
                             Vector3D(planeWidth / Parameters.IMAGE_WIDTH / 2, -planeHeight / Parameters.IMAGE_HEIGHT / 2, 0)
 
-                val rayIntoScene = Ray3D(eyeLocation, eyeLocation to planeLocation)
+                val colorAccumulator =
+                for (s <- 1 to Parameters.SAMPLE_COUNT) yield {
+                    val rayIntoScene = Ray3D(eyeLocation, eyeLocation to planeLocation)
+                    castRay(rayIntoScene, geometryList, 0)
+                }
 
-                val c: ShadedColor =
-                    getClosestCollision(rayIntoScene, geometryList) match {
-                        case Some(t) if t._1.isInstanceOf[Sphere] =>
-                            val s = t._1.asInstanceOf[Sphere]
-                            val spherePoint = rayIntoScene.pointAt(t._2)
-                            val shadowRay = Ray3D(spherePoint, spherePoint to lightLocation)
+                val color = colorAccumulator.reduce((c1, c2) => c1 + c2) / colorAccumulator.length
 
-                            val ambientColor = ShadingUtil.ambient(s.color, Parameters.AMBIENT_LEVEL)
+                val finalColor = Vector3D(
+                    ShadingUtil.clamp(color.x, 0, 1),
+                    ShadingUtil.clamp(color.y, 0, 1),
+                    ShadingUtil.clamp(color.z, 0, 1)
+                )
 
-                            getClosestCollision(shadowRay, geometryList.filter(_ != s)) match {
-                                case Some(_)=>
-                                    ambientColor
-                                case _ =>
-                                    // todo shininess as a property of an object, not global
-                                    // todo light as an object with a color, not global
-                                    // todo mix shaders correctly (weights sum = 1? may not)
-                                    // todo specular is flimsy, perhaps a casted ray off to check the color to do spec for? color of light is sketchy at best
-                                    // todo best option is likely to convert light to geom object, and that will take awhile
-                                    val diffuseColor = ShadingUtil.diffuse(Parameters.DIFFUSE_WEIGHT, s.color, s.center to spherePoint, spherePoint to lightLocation)
-                                    val specularColor = ShadingUtil.specular(Parameters.SPECULAR_WEIGHT, ShadedColor(Color.WHITE), s.center to spherePoint, spherePoint to lightLocation, spherePoint to eyeLocation, Parameters.SPECULAR_SHININESS)
-                                    ambientColor + diffuseColor + specularColor
-                            }
-                        case _ =>
-                            Parameters.BACKGROUND_COLOR
-                    }
-
-                pixelWriter.setColor(x, y, c.color)
+                pixelWriter.setColor(x, y, finalColor.toColor)
             })
+            println(s"COL COMPLETED: $x")
         })
 
         // image filling occurs here
@@ -82,47 +69,47 @@ object Luminescence {
         writeImageToFile(image, getFile)
     }
 
-    def getClosestCollision(ray: Ray3D, geometry: List[Geometry]): Option[(Geometry, Double)] = {
-        val possibleCollisions: List[Option[(Geometry, Double)]] = geometry.map{
-            case s: Sphere =>
-                ray intersections s match {
-                    case Some(intersectionPoints) =>
-                        if (intersectionPoints._1 < 0 && intersectionPoints._2 < 0) {
-                            None
-                        } else if (intersectionPoints._1 < 0) {
-                            Some((s, intersectionPoints._2))
-                        } else if (intersectionPoints._2 < 0) {
-                            Some((s, intersectionPoints._1))
-                        } else {
-                            Some((s, math.min(intersectionPoints._1, intersectionPoints._2)))
-                        }
-                    case None =>
-                        None
-                }
-            case _ =>
-                None
+    def castRay(ray: Ray3D, geometry: List[Geometry], depth: Int): Vector3D = {
+
+        if (depth > Parameters.BOUNCE_COUNT) return Vector3D(Color.BLACK)
+
+        val collisions: List[RayHit] =
+            (for (g <- geometry) yield g intersections ray).flatten.filter(_.time >= Parameters.TIME_THRESHOLD)
+
+        if (collisions.isEmpty) return Vector3D(Color.BLACK)
+
+        val collision = collisions.reduce((rh1, rh2) => if (rh1.time <= rh2.time) rh1 else rh2)
+
+        val g = collision.geometry
+        val p = collision.ray.pointAt(collision.time)
+        val m = g.material
+
+        val randomRay = Ray3D(p, g.normalAt(p).inHemisphereOf)
+
+        val probability = 1 / (2 * math.Pi)
+        val cosineTheta = randomRay.direction dot g.normalAt(p)
+        val BRDF = m.reflectance / math.Pi
+
+        val incomingColor = castRay(randomRay, geometry, depth + 1)
+
+        //println(s"Data: emit = ${m.emittance}, BRDF = $BRDF, inCol = $incomingColor")
+
+        val finalColor = m.emittance + (BRDF * incomingColor * cosineTheta / probability)
+        if (finalColor != Vector3D.ZERO && depth == 0) {
+            if (finalColor.x > 1 || finalColor.x < 0 || finalColor.y > 1 || finalColor.y < 0 || finalColor.z > 1 || finalColor.z < 0) {
+//                println(s"Data: emit = ${m.emittance}, BRDF = $BRDF, inCol = $incomingColor")
+//                println(s"FINAL COLOR: $finalColor")
+            }
         }
 
-        val collisions: List[(Geometry, Double)] = possibleCollisions.filter(_.isDefined).map(_.get)
-
-        if (collisions.isEmpty) {
-            None
-        } else {
-            Some(collisions.reduce((last: (Geometry, Double), cur: (Geometry, Double)) => {
-                if (last._2 <= cur._2) {
-                    last
-                } else {
-                    cur
-                }
-            }))
-        }
+        finalColor
     }
 
     def getImage: WritableImage = new WritableImage(Parameters.IMAGE_WIDTH, Parameters.IMAGE_HEIGHT)
 
     def getFile: File = {
         val dir = Parameters.FILEPATH
-        if ( !dir.exists && !dir.mkdirs() ) {
+        if (!dir.exists && !dir.mkdirs()) {
             throw new IOException("[ERROR]: COULD NOT CREATE NECESSARY DIRECTORIES")
         }
 
