@@ -9,7 +9,7 @@ object Parameters {
     val VERSION: String = "0.1"
 
     val ASPECT_RATIO: Double = 2.0
-    val IMAGE_HEIGHT: Int = 400
+    val IMAGE_HEIGHT: Int = 500
     val IMAGE_WIDTH: Int = (IMAGE_HEIGHT * ASPECT_RATIO).asInstanceOf[Int]
     val IMAGE_FILE_FORMAT: String = "png"
 
@@ -19,7 +19,7 @@ object Parameters {
     val BACKGROUND_COLOR: Color = Color.BLACK
 
     val SAMPLE_COUNT: Int = 500
-    val BOUNCE_COUNT: Int = 5
+    val BOUNCE_COUNT: Int = 3
     val TIME_THRESHOLD: Double = 0.00001
 
 }

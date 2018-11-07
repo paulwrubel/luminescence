@@ -15,61 +15,47 @@ object Luminescence {
     def main(args: Array[String]): Unit = {
         val image = getImage
 
-        val pixelWriter = image.getPixelWriter
+        val scene = getScene
 
-        val viewportCenterLocation = Point3D(10, 10, 0)
-
-        val eyeLocation = viewportCenterLocation + Vector3D(0, 0, 5)
-
-        val light = Sphere(viewportCenterLocation + Vector3D(-5, 5, -10), 1, Material(Vector3D.ZERO, Vector3D(100, 100, 100)))
-
-        val nw = viewportCenterLocation + Vector3D(-5, 2.5, 0)
-        val se = viewportCenterLocation + Vector3D(5, -2.5, 0)
-
-        val planeWidth: Double = (nw to se).x.abs
-        val planeHeight: Double = (nw to se).y.abs
-
-        val geometryList: List[Geometry] = List(
-            light,
-            Sphere(viewportCenterLocation + Vector3D(5, 0, -20), 1, Material.light(Vector3D(Color.RED))),
-            Sphere(viewportCenterLocation + Vector3D(2, -2, -12), 2, Material(Vector3D(Color.BLUE), Vector3D.ZERO)),
-            Sphere(viewportCenterLocation + Vector3D(0, 0, -9), 1, Material.light(Vector3D(Color.AQUA))),
-            Sphere(viewportCenterLocation + Vector3D(1, 0, -30), 5, Material(Vector3D(Color.GREEN), Vector3D.ZERO))
-        )
-
-
-        (0 until Parameters.IMAGE_WIDTH).foreach(x => {
-            ((Parameters.IMAGE_HEIGHT - 1) to 0 by -1).foreach(y => {
-
-                val planeLocation =
-                    nw + (Vector3D.RIGHT * x * planeWidth / Parameters.IMAGE_WIDTH) + (-Vector3D.UP * y * planeHeight / Parameters.IMAGE_HEIGHT) +
-                            Vector3D(planeWidth / Parameters.IMAGE_WIDTH / 2, -planeHeight / Parameters.IMAGE_HEIGHT / 2, 0)
-
-                val colorAccumulator =
-                for (s <- 1 to Parameters.SAMPLE_COUNT) yield {
-                    val rayIntoScene = Ray3D(eyeLocation, eyeLocation to planeLocation)
-                    castRay(rayIntoScene, geometryList, 0)
-                }
-
-                val color = colorAccumulator.reduce((c1, c2) => c1 + c2) / colorAccumulator.length
-
-                val finalColor = Vector3D(
-                    ShadingUtil.clamp(color.x, 0, 1),
-                    ShadingUtil.clamp(color.y, 0, 1),
-                    ShadingUtil.clamp(color.z, 0, 1)
-                )
-
-                pixelWriter.setColor(x, y, finalColor.toColor)
-            })
-            println(s"COL COMPLETED: $x")
-        })
+        render(image, scene)
 
         // image filling occurs here
 
         writeImageToFile(image, getFile)
     }
 
+    def render(image: WritableImage, scene: Scene): Unit = {
+
+
+        val threads = List(
+            new Thread(new Tracer(1, 0, Parameters.IMAGE_WIDTH / 2 - 1, 0, Parameters.IMAGE_HEIGHT / 2 - 1, image, scene)),
+            new Thread(new Tracer(2, Parameters.IMAGE_WIDTH / 2, Parameters.IMAGE_WIDTH - 1, 0, Parameters.IMAGE_HEIGHT / 2 - 1, image, scene)),
+            new Thread(new Tracer(3, 0, Parameters.IMAGE_WIDTH / 2 - 1, Parameters.IMAGE_HEIGHT / 2, Parameters.IMAGE_HEIGHT - 1, image, scene)),
+            new Thread(new Tracer(4, Parameters.IMAGE_WIDTH / 2, Parameters.IMAGE_WIDTH - 1, Parameters.IMAGE_HEIGHT / 2, Parameters.IMAGE_HEIGHT - 1, image, scene))
+        )
+
+        threads.foreach(_.start)
+
+        println("RUNNING THREADS")
+
+        threads.foreach(_.join)
+
+        println("FINISHED")
+
+    }
+
     def castRay(ray: Ray3D, geometry: List[Geometry], depth: Int): Vector3D = {
+
+        val a = Vector3D(1, 2, 3)
+
+        val b = -a
+
+        val c = a + b
+
+        val d = a cross b
+
+        val x =
+            if ((a cross b) == Vector3D.ZERO) 5 else 7
 
         if (depth > Parameters.BOUNCE_COUNT) return Vector3D(Color.BLACK)
 
@@ -83,6 +69,8 @@ object Luminescence {
         val g = collision.geometry
         val p = collision.ray.pointAt(collision.time)
         val m = g.material
+
+        if (m.reflectance == Vector3D.ZERO) return m.emittance
 
         val randomRay = Ray3D(p, g.normalAt(p).inHemisphereOf)
 
@@ -103,6 +91,38 @@ object Luminescence {
         }
 
         finalColor
+    }
+
+    def getScene: Scene = {
+        val farUpperLeft   = Point3D(0 , 10, -20)
+        val farUpperRight  = Point3D(20, 10, -20)
+        val farLowerLeft   = Point3D(0 ,  0, -20)
+        val farLowerRight  = Point3D(20,  0, -20)
+        val nearUpperLeft  = Point3D(0 , 10,   0)
+        val nearUpperRight = Point3D(20, 10,   0)
+        val nearLowerLeft  = Point3D(0 ,  0,   0)
+        val nearLowerRight = Point3D(20,  0,   0)
+
+        Scene(
+            Point3D(10, 5, 10),
+            ViewPort(Point3D(0, 10, 0), Point3D(20, 0, 0)),
+            List(
+                Sphere(Point3D(1, 9, -19), 1, Material(Vector3D.ZERO, Vector3D(25, 25, 25))),
+                Triangle(nearLowerLeft, farLowerLeft, farUpperLeft, Material(Vector3D(Color.WHITESMOKE), Vector3D.ZERO)),
+                Triangle(nearLowerLeft, farUpperLeft, nearUpperLeft, Material(Vector3D(Color.WHITESMOKE), Vector3D.ZERO)),
+                Triangle(farLowerLeft, farLowerRight, farUpperRight, Material(Vector3D(Color.WHITESMOKE), Vector3D.ZERO)),
+                Triangle(farLowerLeft, farUpperRight, farUpperLeft, Material(Vector3D(Color.WHITESMOKE), Vector3D.ZERO)),
+                Triangle(farLowerRight, nearLowerRight, nearUpperRight, Material(Vector3D(Color.WHITESMOKE), Vector3D.ZERO)),
+                Triangle(farLowerRight, nearUpperRight, farUpperRight, Material(Vector3D(Color.WHITESMOKE), Vector3D.ZERO)),
+                Triangle(nearLowerLeft, nearLowerRight, farLowerRight, Material(Vector3D(Color.WHITESMOKE), Vector3D.ZERO)),
+                Triangle(nearLowerLeft, farLowerRight, farLowerLeft, Material(Vector3D(Color.WHITESMOKE), Vector3D.ZERO)),
+                Triangle(farUpperLeft, farUpperRight, nearUpperRight, Material(Vector3D(Color.WHITESMOKE), Vector3D.ZERO)),
+                Triangle(farUpperLeft, nearUpperRight, nearUpperLeft, Material(Vector3D(Color.WHITESMOKE), Vector3D.ZERO)),
+                Sphere(Point3D(19, 1, -15), 1, Material.light(Vector3D(Color.RED) * 5)),
+                Sphere(Point3D(18, 2, -18), 2, Material(Vector3D(Color.color(0.1, 0.1, 0.9)), Vector3D.ZERO)),
+                Sphere(Point3D(15, 1, -19), 1, Material.light(Vector3D(Color.AQUA) * 2))
+            )
+        )
     }
 
     def getImage: WritableImage = new WritableImage(Parameters.IMAGE_WIDTH, Parameters.IMAGE_HEIGHT)

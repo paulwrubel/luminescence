@@ -22,7 +22,7 @@ class Vector3D(val x: Double, val y: Double, val z: Double) {
     }
 
     def cross(v: Vector3D): Vector3D = {
-        Vector3D((y * v.z) - (z * v.y), (x * v.z) - (z * v.x), (x * v.y) - (y * v.x))
+        Vector3D((y * v.z) - (z * v.y), (z * v.x) - (x * v.z), (x * v.y) - (y * v.x))
     }
 
     def angleRadians(v: Vector3D): Double = {

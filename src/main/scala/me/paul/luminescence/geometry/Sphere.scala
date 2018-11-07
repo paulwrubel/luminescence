@@ -4,7 +4,7 @@ import me.paul.luminescence.shading.{Material, RayHit}
 
 class Sphere(val center: Point3D, val radius: Double, val material: Material) extends Geometry {
 
-    def intersects(ray: Ray3D): Boolean = {
+    override def intersects(ray: Ray3D): Boolean = {
         val a: Double = ray.direction dot ray.direction
         val b: Double = (ray.direction * 2) dot (ray.start - center)
         val c: Double = ((ray.start - center) dot (ray.start - center)) - (radius * radius)
@@ -14,7 +14,7 @@ class Sphere(val center: Point3D, val radius: Double, val material: Material) ex
         preDiscriminant >= 0
     }
 
-    def intersections(ray: Ray3D): List[RayHit] = {
+    override def intersections(ray: Ray3D): List[RayHit] = {
         val a: Double = ray.direction dot ray.direction
         val b: Double = (ray.direction * 2) dot (ray.start - center)
         val c: Double = ((ray.start - center) dot (ray.start - center)) - (radius * radius)
@@ -42,7 +42,7 @@ class Sphere(val center: Point3D, val radius: Double, val material: Material) ex
 
     }
 
-    def normalAt(point: Point3D): Vector3D = {
+    override def normalAt(point: Point3D): Vector3D = {
         (center to point).normalize
     }
 
