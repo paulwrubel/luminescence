@@ -1,9 +1,9 @@
 package me.paul.luminescence
 
 import javafx.scene.image.WritableImage
-import me.paul.luminescence.Luminescence.castRay
-import me.paul.luminescence.geometry.{Ray3D, Vector3D}
-import me.paul.luminescence.shading.ShadingUtil
+import javafx.scene.paint.Color
+import me.paul.luminescence.geometry.{Geometry, Ray3D, Vector3D}
+import me.paul.luminescence.shading.{RayHit, ShadingUtil}
 
 class Tracer(val id: Int, val xMin: Int, val xMax: Int, val yMin: Int, val yMax: Int, val image: WritableImage, val scene: Scene) extends Runnable{
 
@@ -11,32 +11,20 @@ class Tracer(val id: Int, val xMin: Int, val xMax: Int, val yMin: Int, val yMax:
 
         val pixelWriter = image.getPixelWriter
 
-        val nw = scene.viewport.northwest
-        val se = scene.viewport.southeast
+        (yMin to yMax).foreach(y => {
+            (xMin to xMax).foreach(x => {
 
-        val planeWidth: Double = (nw to se).x.abs
-        val planeHeight: Double = (nw to se).y.abs
+                var colorAccumulator: Vector3D = Vector3D.ZERO
 
-        val a= 2.+(3)
+                for (s <- 1 to Parameters.SAMPLE_COUNT) yield {
+                    val xScale = (x + RandomUtil.randomUpTo(1)) / Parameters.IMAGE_WIDTH
+                    val yScale = (y + RandomUtil.randomUpTo(1)) / Parameters.IMAGE_HEIGHT
 
-        (1 to 10).map(x => x + 2)
+                    val rayIntoScene = scene.camera.getRay(xScale, yScale)
+                    colorAccumulator += castRay(rayIntoScene, scene.geometry, 0)
+                }
 
-        (xMin to xMax).foreach(x => {
-            (yMax to yMin by -1).foreach(y => {
-
-                val planeLocation =
-                    nw +
-                            (Vector3D.RIGHT * x * planeWidth / Parameters.IMAGE_WIDTH) +
-                            (-Vector3D.UP * y * planeHeight / Parameters.IMAGE_HEIGHT) +
-                            Vector3D(RandomUtil.randomUpTo(planeWidth / Parameters.IMAGE_WIDTH), -RandomUtil.randomUpTo(planeHeight / Parameters.IMAGE_HEIGHT), 0)
-
-                val colorAccumulator =
-                    for (s <- 1 to Parameters.SAMPLE_COUNT) yield {
-                        val rayIntoScene = Ray3D(scene.eyeLocation, scene.eyeLocation to planeLocation)
-                        castRay(rayIntoScene, scene.geometry, 0)
-                    }
-
-                val color = colorAccumulator.reduce((c1, c2) => c1 + c2) / colorAccumulator.length
+                val color = colorAccumulator / Parameters.SAMPLE_COUNT
 
                 val finalColor = Vector3D(
                     ShadingUtil.clamp(color.x, 0, 1),
@@ -44,10 +32,48 @@ class Tracer(val id: Int, val xMin: Int, val xMax: Int, val yMin: Int, val yMax:
                     ShadingUtil.clamp(color.z, 0, 1)
                 )
 
-                pixelWriter.setColor(x, y, finalColor.toColor)
+                pixelWriter.setColor(x, Parameters.IMAGE_HEIGHT - y - 1, finalColor.toColor)
             })
-            println(f"Chunk #$id: ${100 * (x - xMin).asInstanceOf[Double] / (xMax - xMin)}%3.4f%%")
+            println(f"Chunk #$id: ${100 * (y - yMin).asInstanceOf[Double] / (yMax - yMin)}%3.4f%%")
         })
+    }
+
+    def castRay(ray: Ray3D, geometry: List[Geometry], depth: Int): Vector3D = {
+
+        if (depth > Parameters.BOUNCE_COUNT) return Vector3D(Color.BLACK)
+
+        val collisions: List[RayHit] =
+            (for (g <- geometry) yield g intersections ray).flatten.filter(_.time >= Parameters.TIME_THRESHOLD)
+
+        if (collisions.isEmpty) return Vector3D(Color.BLACK)
+
+        val collision = collisions.reduce((rh1, rh2) => if (rh1.time <= rh2.time) rh1 else rh2)
+
+        val g = collision.geometry
+        val p = collision.ray.pointAt(collision.time)
+        val m = g.material
+
+        if (m.reflectance == Vector3D.ZERO) return m.emittance
+
+        val randomRay = Ray3D(p, g.normalAt(p).inHemisphereOf)
+
+        val probability = 1 / (2 * math.Pi)
+        val cosineTheta = randomRay.direction dot g.normalAt(p)
+        val BRDF = m.reflectance / math.Pi
+
+        val incomingColor = castRay(randomRay, geometry, depth + 1)
+
+        //println(s"Data: emit = ${m.emittance}, BRDF = $BRDF, inCol = $incomingColor")
+
+        val finalColor = m.emittance + (BRDF * incomingColor * cosineTheta / probability)
+        if (finalColor != Vector3D.ZERO && depth == 0) {
+            if (finalColor.x > 1 || finalColor.x < 0 || finalColor.y > 1 || finalColor.y < 0 || finalColor.z > 1 || finalColor.z < 0) {
+                //                println(s"Data: emit = ${m.emittance}, BRDF = $BRDF, inCol = $incomingColor")
+                //                println(s"FINAL COLOR: $finalColor")
+            }
+        }
+
+        finalColor
     }
 
 }
