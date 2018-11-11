@@ -1,7 +1,7 @@
 package me.paul.luminescence.geometry
 
 import javafx.scene.paint.Color
-import me.paul.luminescence.RandomUtil
+import me.paul.luminescence.{LoopUtil, RandomUtil}
 
 class Vector3D(val x: Double, val y: Double, val z: Double) {
 
@@ -39,6 +39,10 @@ class Vector3D(val x: Double, val y: Double, val z: Double) {
 
     def toColor: Color = {
         Color.color(x, y, z)
+    }
+
+    def reflectAround(normal: Vector3D): Vector3D = {
+        this - ((normal * (this dot normal)) * 2)
     }
 
     def perpendicular: Vector3D = {
@@ -146,6 +150,7 @@ class Vector3D(val x: Double, val y: Double, val z: Double) {
 object Vector3D {
 
     def apply(x: Double, y: Double, z: Double): Vector3D = new Vector3D(x, y, z)
+    def apply(s: Double): Vector3D = new Vector3D(s, s, s)
     def apply(c: Color): Vector3D = new Vector3D(c.getRed, c.getGreen, c.getBlue)
 
     val RIGHT: Vector3D = new Vector3D(1.0, 0.0, 0.0)
@@ -153,4 +158,10 @@ object Vector3D {
     val FORWARD: Vector3D = new Vector3D(0.0, 0.0, -1.0)
 
     val ZERO: Vector3D = new Vector3D(0.0, 0.0, 0.0)
+
+    def randomInUnitSphere: Vector3D = {
+        LoopUtil.doUntilYield[Vector3D](v => v.magnitude < 1.0) {
+            Vector3D(RandomUtil.randomBetween(-1, 1), RandomUtil.randomBetween(-1, 1), RandomUtil.randomBetween(-1, 1))
+        }
+    }
 }

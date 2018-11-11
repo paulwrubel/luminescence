@@ -1,45 +1,33 @@
 package me.paul.luminescence.geometry
 
-import me.paul.luminescence.shading.{Material, RayHit}
+import me.paul.luminescence.shading.RayHit
+import me.paul.luminescence.shading.material.Material
 
 class Sphere(val center: Point3D, val radius: Double, val material: Material) extends Geometry {
 
-    override def intersects(ray: Ray3D): Boolean = {
+    override def intersections(ray: Ray3D, min: Double, max: Double): Option[RayHit] = {
+        val centerToStart = center to ray.start
         val a: Double = ray.direction dot ray.direction
-        val b: Double = (ray.direction * 2) dot (ray.start - center)
-        val c: Double = ((ray.start - center) dot (ray.start - center)) - (radius * radius)
+        val b: Double = ray.direction dot centerToStart
+        val c: Double = (centerToStart dot centerToStart) - (radius * radius)
 
-        val preDiscriminant: Double = (b * b) - (4 * a * c)
+        val preDiscriminant: Double = (b * b) - (a * c)
 
-        preDiscriminant >= 0
-    }
-
-    override def intersections(ray: Ray3D): List[RayHit] = {
-        val a: Double = ray.direction dot ray.direction
-        val b: Double = (ray.direction * 2) dot (ray.start - center)
-        val c: Double = ((ray.start - center) dot (ray.start - center)) - (radius * radius)
-
-        val preDiscriminant: Double = (b * b) - (4 * a * c)
-
-        if (preDiscriminant < 0) {
-            List.empty
-        } else {
-            val discriminant: Double = math.sqrt(preDiscriminant)
-            if (preDiscriminant == 0) {
-
-                val solution: Double = (-b + discriminant) / (2 * a)
-
-                List(RayHit(ray, this, solution))
-
-            } else {
-
-                val solutionA: Double = (-b + discriminant) / (2 * a)
-                val solutionB: Double = (-b - discriminant) / (2 * a)
-
-                List(RayHit(ray, this, solutionA), RayHit(ray, this, solutionB))
+        if (preDiscriminant > 0) {
+            // evaluate first solution, which will be smaller
+            val t1: Double = (-b - math.sqrt(preDiscriminant)) / a
+            // return if within range
+            if (t1 >= min && t1 <= max) {
+                return Some(RayHit(ray, this, t1))
+            }
+            //evaluate and return second solution if in range
+            val t2 = (-b + math.sqrt(preDiscriminant)) / a
+            if (t2 >= min && t2 <= max) {
+                return Some(RayHit(ray, this, t2))
             }
         }
-
+        // default to no solution / out of bounds solution
+        None
     }
 
     override def normalAt(point: Point3D): Vector3D = {
