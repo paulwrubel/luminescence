@@ -1,7 +1,7 @@
 package me.paul.luminescence.geometry
 
 import javafx.scene.paint.Color
-import me.paul.luminescence.RandomUtil
+import me.paul.luminescence.{LoopUtil, RandomUtil}
 
 class Vector3D(val x: Double, val y: Double, val z: Double) {
 
@@ -33,12 +33,34 @@ class Vector3D(val x: Double, val y: Double, val z: Double) {
         math.toDegrees(angleRadians(v))
     }
 
+    def minComponents(v: Vector3D): Vector3D = {
+        Vector3D(math.min(this.x, v.x), math.min(this.y, v.y), math.min(this.z, v.z))
+    }
+
+    def maxComponents(v: Vector3D): Vector3D = {
+        Vector3D(math.max(this.x, v.x), math.max(this.y, v.y), math.max(this.z, v.z))
+    }
+
     def toPoint3D: Point3D = {
         Point3D(x, y, z)
     }
 
     def toColor: Color = {
         Color.color(x, y, z)
+    }
+
+    def reflectAround(normal: Vector3D): Vector3D = {
+        this - ((normal * (this dot normal)) * 2)
+    }
+
+    def refractAround(normal: Vector3D, ratioOfRefractiveIndices: Double): Option[Vector3D] = {
+        val dt = this.normalize dot normal
+        val discriminant = 1.0 - (ratioOfRefractiveIndices * ratioOfRefractiveIndices) * (1.0 - (dt * dt))
+        if (discriminant > 0) {
+            Some(((this.normalize - (normal * dt)) * ratioOfRefractiveIndices) - (normal * math.sqrt(discriminant)))
+        } else {
+            None
+        }
     }
 
     def perpendicular: Vector3D = {
@@ -146,6 +168,7 @@ class Vector3D(val x: Double, val y: Double, val z: Double) {
 object Vector3D {
 
     def apply(x: Double, y: Double, z: Double): Vector3D = new Vector3D(x, y, z)
+    def apply(s: Double): Vector3D = new Vector3D(s, s, s)
     def apply(c: Color): Vector3D = new Vector3D(c.getRed, c.getGreen, c.getBlue)
 
     val RIGHT: Vector3D = new Vector3D(1.0, 0.0, 0.0)
@@ -153,4 +176,16 @@ object Vector3D {
     val FORWARD: Vector3D = new Vector3D(0.0, 0.0, -1.0)
 
     val ZERO: Vector3D = new Vector3D(0.0, 0.0, 0.0)
+
+    def randomInUnitSphere: Vector3D = {
+        LoopUtil.doUntilYield[Vector3D](v => v.magnitude < 1.0) {
+            Vector3D(RandomUtil.randomBetween(-1, 1), RandomUtil.randomBetween(-1, 1), RandomUtil.randomBetween(-1, 1))
+        }
+    }
+
+    def randomOnUnitDisk: Vector3D = {
+        LoopUtil.doUntilYield[Vector3D](v => v.magnitude < 1.0) {
+            Vector3D(RandomUtil.randomBetween(-1, 1), RandomUtil.randomBetween(-1, 1), 0)
+        }
+    }
 }

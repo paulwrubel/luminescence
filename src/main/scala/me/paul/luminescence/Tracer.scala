@@ -1,53 +1,91 @@
 package me.paul.luminescence
 
 import javafx.scene.image.WritableImage
-import me.paul.luminescence.Luminescence.castRay
-import me.paul.luminescence.geometry.{Ray3D, Vector3D}
-import me.paul.luminescence.shading.ShadingUtil
+import javafx.scene.paint.Color
+import me.paul.luminescence.geometry.{Geometry, Ray3D, Vector3D}
+import me.paul.luminescence.shading.{RayHit, ShadingUtil}
 
-class Tracer(val id: Int, val xMin: Int, val xMax: Int, val yMin: Int, val yMax: Int, val image: WritableImage, val scene: Scene) extends Runnable{
+class Tracer(val id: Int, val xMin: Int, val xMax: Int, val yMin: Int, val yMax: Int, val image: WritableImage, val scene: Scene) extends Runnable {
 
     override def run(): Unit = {
 
         val pixelWriter = image.getPixelWriter
 
-        val nw = scene.viewport.northwest
-        val se = scene.viewport.southeast
+        (yMin to yMax).foreach(y => {
+            (xMin to xMax).foreach(x => {
 
-        val planeWidth: Double = (nw to se).x.abs
-        val planeHeight: Double = (nw to se).y.abs
+                var colorAccumulator: Vector3D = Vector3D.ZERO
 
-        val a= 2.+(3)
+                (1 to Parameters.SAMPLE_COUNT).foreach(s => {
+                    val xScale = (x + RandomUtil.randomUpTo(1)) / Parameters.IMAGE_WIDTH
+                    val yScale = (y + RandomUtil.randomUpTo(1)) / Parameters.IMAGE_HEIGHT
 
-        (1 to 10).map(x => x + 2)
+                    val rayIntoScene = scene.camera.getRay(xScale, yScale)
+                    colorAccumulator += colorOf(rayIntoScene, scene.geometry, 0)
+                })
 
-        (xMin to xMax).foreach(x => {
-            (yMax to yMin by -1).foreach(y => {
+                val color = colorAccumulator / Parameters.SAMPLE_COUNT
 
-                val planeLocation =
-                    nw +
-                            (Vector3D.RIGHT * x * planeWidth / Parameters.IMAGE_WIDTH) +
-                            (-Vector3D.UP * y * planeHeight / Parameters.IMAGE_HEIGHT) +
-                            Vector3D(RandomUtil.randomUpTo(planeWidth / Parameters.IMAGE_WIDTH), -RandomUtil.randomUpTo(planeHeight / Parameters.IMAGE_HEIGHT), 0)
-
-                val colorAccumulator =
-                    for (s <- 1 to Parameters.SAMPLE_COUNT) yield {
-                        val rayIntoScene = Ray3D(scene.eyeLocation, scene.eyeLocation to planeLocation)
-                        castRay(rayIntoScene, scene.geometry, 0)
+                val finalColor =
+                    if (Parameters.GAMMA_CORRECTION > 1) {
+                        Vector3D(
+                            math.pow(ShadingUtil.clamp(color.x, 0, 1), 1.0 / Parameters.GAMMA_CORRECTION),
+                            math.pow(ShadingUtil.clamp(color.y, 0, 1), 1.0 / Parameters.GAMMA_CORRECTION),
+                            math.pow(ShadingUtil.clamp(color.z, 0, 1), 1.0 / Parameters.GAMMA_CORRECTION)
+                        )
+                    } else {
+                        Vector3D(
+                            ShadingUtil.clamp(color.x, 0, 1),
+                            ShadingUtil.clamp(color.y, 0, 1),
+                            ShadingUtil.clamp(color.z, 0, 1)
+                        )
                     }
 
-                val color = colorAccumulator.reduce((c1, c2) => c1 + c2) / colorAccumulator.length
-
-                val finalColor = Vector3D(
-                    ShadingUtil.clamp(color.x, 0, 1),
-                    ShadingUtil.clamp(color.y, 0, 1),
-                    ShadingUtil.clamp(color.z, 0, 1)
-                )
-
-                pixelWriter.setColor(x, y, finalColor.toColor)
+                pixelWriter.setColor(x, Parameters.IMAGE_HEIGHT - y - 1, finalColor.toColor)
             })
-            println(f"Chunk #$id: ${100 * (x - xMin).asInstanceOf[Double] / (xMax - xMin)}%3.4f%%")
+            println(f"Chunk #$id: ${100 * (y + 1 - yMin).asInstanceOf[Double] / (yMax - yMin + 1)}%3.4f%%")
         })
+    }
+
+    def colorOf(ray: Ray3D, geometry: List[Geometry], depth: Int): Vector3D = {
+
+        if (depth > Parameters.BOUNCE_COUNT) return Vector3D(Color.BLACK)
+
+        val collisions: List[RayHit] = geometry.flatMap(g => g.intersections(ray, Parameters.TIME_MINIMUM, Parameters.TIME_MAXIMUM))
+        if (collisions.isEmpty) return Vector3D(Color.BLACK)
+        val collision = collisions.min
+
+        val p = collision.ray.pointAt(collision.time)
+        val m = collision.material
+
+        if (m.reflectance == Vector3D.ZERO) return m.emittance
+
+        val randomRayOption = m.scatter(collision)
+        if (randomRayOption.isEmpty) return Vector3D(Color.BLACK)
+
+        val randomRay = randomRayOption.get
+
+        val finalColor =
+            if (m.isSpecular) {
+
+                val incomingColor = colorOf(randomRay, geometry, depth + 1)
+
+                m.reflectance * incomingColor
+
+            } else {
+
+                //val probability = 1 / (2 * math.Pi)
+                //val cosineTheta = randomRay.direction dot g.normalAt(p)
+                //val BRDF = m.reflectance / math.Pi
+                //
+                val incomingColor = colorOf(randomRay, geometry, depth + 1)
+                //
+                //m.emittance + (BRDF * incomingColor * cosineTheta / probability)
+                m.emittance + (m.reflectance * incomingColor)
+
+            }
+
+        finalColor
     }
 
 }

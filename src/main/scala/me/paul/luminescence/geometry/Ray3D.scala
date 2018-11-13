@@ -1,10 +1,12 @@
 package me.paul.luminescence.geometry
 
-class Ray3D(val start: Point3D, _direction: Vector3D) {
+import me.paul.luminescence.geometry.primitive.Sphere
+
+class Ray3D(val origin: Point3D, _direction: Vector3D) {
     val direction: Vector3D = _direction.normalize
 
     def pointAt(t: Double): Point3D = {
-        start + (direction * t)
+        origin + (direction * t)
     }
 
     /*
@@ -15,8 +17,8 @@ class Ray3D(val start: Point3D, _direction: Vector3D) {
 
     def intersections(s: Sphere): Option[(Double, Double)] = {
         val a: Double = direction dot direction
-        val b: Double = (direction * 2) dot (start - s.center)
-        val c: Double = ((start - s.center) dot (start - s.center)) - (s.radius * s.radius)
+        val b: Double = (direction * 2) dot (origin - s.center)
+        val c: Double = ((origin - s.center) dot (origin - s.center)) - (s.radius * s.radius)
 
         val preDiscriminant: Double = (b * b) - (4 * a * c)
 
@@ -33,7 +35,7 @@ class Ray3D(val start: Point3D, _direction: Vector3D) {
     }
 
     override def toString: String = {
-        s"Ray3D(s = $start, d = $direction)"
+        s"Ray3D(s = $origin, d = $direction)"
     }
 }
 

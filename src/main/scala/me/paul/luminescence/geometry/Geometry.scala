@@ -1,14 +1,14 @@
 package me.paul.luminescence.geometry
 
-import me.paul.luminescence.shading.{Material, RayHit}
+import me.paul.luminescence.geometry.primitive.ReverseNormals
+import me.paul.luminescence.shading.RayHit
+import me.paul.luminescence.shading.material.Material
 
 trait Geometry {
 
     val material: Material
+    val reverseNormals: Boolean = false
 
-    def intersects(ray: Ray3D): Boolean
-    def intersections(ray: Ray3D): List[RayHit]
-
-    def normalAt(point: Point3D): Vector3D
+    def intersections(ray: Ray3D, tMin: Double, tMax: Double): Option[RayHit]
 
 }
