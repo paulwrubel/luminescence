@@ -1,6 +1,7 @@
-package me.paul.luminescence.geometry
+package me.paul.luminescence.geometry.primitive
 
 import me.paul.luminescence.Parameters
+import me.paul.luminescence.geometry._
 import me.paul.luminescence.shading.RayHit
 import me.paul.luminescence.shading.material.Material
 
@@ -29,9 +30,9 @@ class Triangle(val a: Point3D, val b: Point3D, val c: Point3D, val material: Mat
         val G = ray.direction.x
         val H = ray.direction.y
         val I = ray.direction.z
-        val J = a.x - ray.start.x
-        val K = a.y - ray.start.y
-        val L = a.z - ray.start.z
+        val J = a.x - ray.origin.x
+        val K = a.y - ray.origin.y
+        val L = a.z - ray.origin.z
 
         val M = (A * ((E * I) - (H * F))) + (B * ((G * F) - (D * I))) + (C * ((D * H) - (E * G)))
 
@@ -42,7 +43,7 @@ class Triangle(val a: Point3D, val b: Point3D, val c: Point3D, val material: Mat
             if (gamma >= 0 && gamma <= 1) {
                 val beta = ((J * ((E * I) - (H * F))) + (K * ((G * F) - (D * I))) + (L * ((D * H) - (E * G)))) / M
                 if (beta >= 0 && beta <= 1 - gamma) {
-                    return Some(RayHit(ray, this, t))
+                    return Some(RayHit(ray, normal, t, material))
                 }
             }
         }
@@ -62,7 +63,7 @@ class Triangle(val a: Point3D, val b: Point3D, val c: Point3D, val material: Mat
 
         val inverseDeterminant = 1.0 / determinant
 
-        val tVector = a to ray.start
+        val tVector = a to ray.origin
         val u = inverseDeterminant * (tVector dot pVector)
         if (u < 0.0 || u > 1.0) {
             return None
@@ -78,7 +79,7 @@ class Triangle(val a: Point3D, val b: Point3D, val c: Point3D, val material: Mat
         val t = inverseDeterminant * (ac dot qVector)
         if (t >= min && t <= max) {
             // ray intersection
-            Some(RayHit(ray, this, t))
+            Some(RayHit(ray, normal, t, material))
         } else {
             None
         }
@@ -91,21 +92,21 @@ class Triangle(val a: Point3D, val b: Point3D, val c: Point3D, val material: Mat
             None
         } else {
             val d = normal dot a.toVector3D
-            val t = (d - (normal dot ray.start.toVector3D)) / (normal dot ray.direction)
+            val t = (d - (normal dot ray.origin.toVector3D)) / (normal dot ray.direction)
 
             val q = ray.pointAt(t)
 
             if ((((a to b) cross (a to q)) dot normal) >= 0
                     && (((b to c) cross (b to q)) dot normal) >= 0
                     && (((c to a) cross (c to q)) dot normal) >= 0) {
-                Some(RayHit(ray, this, t))
+                Some(RayHit(ray, normal, t, material))
             } else {
                 None
             }
         }
     }
 
-    override def normalAt(point: Point3D): Vector3D = normal
+//    override def normalAt(point: Point3D): Vector3D = normal
 
 }
 

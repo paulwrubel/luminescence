@@ -14,6 +14,14 @@ class Point3D(val x: Double, val y: Double, val z: Double) {
         this - p
     }
 
+    def minComponents(p: Point3D): Point3D = {
+        Point3D(math.min(this.x, p.x), math.min(this.y, p.y), math.min(this.z, p.z))
+    }
+
+    def maxComponents(p: Point3D): Point3D = {
+        Point3D(math.max(this.x, p.x), math.max(this.y, p.y), math.max(this.z, p.z))
+    }
+
     def toVector3D: Vector3D = {
         Vector3D(x, y, z)
     }

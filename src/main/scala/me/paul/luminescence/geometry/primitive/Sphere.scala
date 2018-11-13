@@ -1,12 +1,13 @@
-package me.paul.luminescence.geometry
+package me.paul.luminescence.geometry.primitive
 
+import me.paul.luminescence.geometry._
 import me.paul.luminescence.shading.RayHit
 import me.paul.luminescence.shading.material.Material
 
 class Sphere(val center: Point3D, val radius: Double, val material: Material) extends Geometry {
 
-    override def intersections(ray: Ray3D, min: Double, max: Double): Option[RayHit] = {
-        val centerToStart = center to ray.start
+    override def intersections(ray: Ray3D, tMin: Double, tMax: Double): Option[RayHit] = {
+        val centerToStart = center to ray.origin
         val a: Double = ray.direction dot ray.direction
         val b: Double = ray.direction dot centerToStart
         val c: Double = (centerToStart dot centerToStart) - (radius * radius)
@@ -17,20 +18,20 @@ class Sphere(val center: Point3D, val radius: Double, val material: Material) ex
             // evaluate first solution, which will be smaller
             val t1: Double = (-b - math.sqrt(preDiscriminant)) / a
             // return if within range
-            if (t1 >= min && t1 <= max) {
-                return Some(RayHit(ray, this, t1))
+            if (t1 >= tMin && t1 <= tMax) {
+                return Some(RayHit(ray, normalAt(ray.pointAt(t1)), t1, material))
             }
             //evaluate and return second solution if in range
             val t2 = (-b + math.sqrt(preDiscriminant)) / a
-            if (t2 >= min && t2 <= max) {
-                return Some(RayHit(ray, this, t2))
+            if (t2 >= tMin && t2 <= tMax) {
+                return Some(RayHit(ray, normalAt(ray.pointAt(t2)), t2, material))
             }
         }
         // default to no solution / out of bounds solution
         None
     }
 
-    override def normalAt(point: Point3D): Vector3D = {
+    def normalAt(point: Point3D): Vector3D = {
         (center to point).normalize
     }
 

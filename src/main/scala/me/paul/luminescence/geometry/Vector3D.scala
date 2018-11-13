@@ -33,6 +33,14 @@ class Vector3D(val x: Double, val y: Double, val z: Double) {
         math.toDegrees(angleRadians(v))
     }
 
+    def minComponents(v: Vector3D): Vector3D = {
+        Vector3D(math.min(this.x, v.x), math.min(this.y, v.y), math.min(this.z, v.z))
+    }
+
+    def maxComponents(v: Vector3D): Vector3D = {
+        Vector3D(math.max(this.x, v.x), math.max(this.y, v.y), math.max(this.z, v.z))
+    }
+
     def toPoint3D: Point3D = {
         Point3D(x, y, z)
     }
@@ -43,6 +51,16 @@ class Vector3D(val x: Double, val y: Double, val z: Double) {
 
     def reflectAround(normal: Vector3D): Vector3D = {
         this - ((normal * (this dot normal)) * 2)
+    }
+
+    def refractAround(normal: Vector3D, ratioOfRefractiveIndices: Double): Option[Vector3D] = {
+        val dt = this.normalize dot normal
+        val discriminant = 1.0 - (ratioOfRefractiveIndices * ratioOfRefractiveIndices) * (1.0 - (dt * dt))
+        if (discriminant > 0) {
+            Some(((this.normalize - (normal * dt)) * ratioOfRefractiveIndices) - (normal * math.sqrt(discriminant)))
+        } else {
+            None
+        }
     }
 
     def perpendicular: Vector3D = {
@@ -162,6 +180,12 @@ object Vector3D {
     def randomInUnitSphere: Vector3D = {
         LoopUtil.doUntilYield[Vector3D](v => v.magnitude < 1.0) {
             Vector3D(RandomUtil.randomBetween(-1, 1), RandomUtil.randomBetween(-1, 1), RandomUtil.randomBetween(-1, 1))
+        }
+    }
+
+    def randomOnUnitDisk: Vector3D = {
+        LoopUtil.doUntilYield[Vector3D](v => v.magnitude < 1.0) {
+            Vector3D(RandomUtil.randomBetween(-1, 1), RandomUtil.randomBetween(-1, 1), 0)
         }
     }
 }
