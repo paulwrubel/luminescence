@@ -6,7 +6,7 @@ class LambertianMaterial(val reflectance: Vector3D, val emittance: Vector3D) ext
 
     override def scatter(hit: RayHit): Option[Ray3D] = {
         val hitPoint = hit.ray.pointAt(hit.time)
-        val target: Point3D = hitPoint + hit.geometry.normalAt(hitPoint) + Vector3D.randomInUnitSphere
+        val target: Point3D = hitPoint + hit.normalAtHit + Vector3D.randomInUnitSphere
         Some(Ray3D(hitPoint, hitPoint to target))
     }
 

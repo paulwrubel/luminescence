@@ -8,6 +8,8 @@ trait Material {
     val reflectance: Vector3D
     val emittance: Vector3D
 
+    def isSpecular: Boolean = false
+
     def scatter(hit: RayHit): Option[Ray3D]
 
 }
