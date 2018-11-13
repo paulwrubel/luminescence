@@ -43,7 +43,7 @@ class Tracer(val id: Int, val xMin: Int, val xMax: Int, val yMin: Int, val yMax:
 
                 pixelWriter.setColor(x, Parameters.IMAGE_HEIGHT - y - 1, finalColor.toColor)
             })
-            println(f"Chunk #$id: ${100 * (y - yMin).asInstanceOf[Double] / (yMax - yMin)}%3.4f%%")
+            println(f"Chunk #$id: ${100 * (y + 1 - yMin).asInstanceOf[Double] / (yMax - yMin + 1)}%3.4f%%")
         })
     }
 
@@ -55,23 +55,35 @@ class Tracer(val id: Int, val xMin: Int, val xMax: Int, val yMin: Int, val yMax:
         if (collisions.isEmpty) return Vector3D(Color.BLACK)
         val collision = collisions.min
 
-        val g = collision.geometry
         val p = collision.ray.pointAt(collision.time)
-        val m = g.material
+        val m = collision.material
 
         if (m.reflectance == Vector3D.ZERO) return m.emittance
 
-        val randomRay = m.scatter(collision).get
+        val randomRayOption = m.scatter(collision)
+        if (randomRayOption.isEmpty) return Vector3D(Color.BLACK)
 
-        val probability = 1 / (2 * math.Pi)
-        val cosineTheta = randomRay.direction dot g.normalAt(p)
-        val BRDF = m.reflectance / math.Pi
+        val randomRay = randomRayOption.get
 
-        val incomingColor = colorOf(randomRay, geometry, depth + 1)
+        val finalColor =
+            if (m.isSpecular) {
 
-        //println(s"Data: emit = ${m.emittance}, BRDF = $BRDF, inCol = $incomingColor")
+                val incomingColor = colorOf(randomRay, geometry, depth + 1)
 
-        val finalColor = m.emittance + (BRDF * incomingColor * cosineTheta / probability)
+                m.reflectance * incomingColor
+
+            } else {
+
+                //val probability = 1 / (2 * math.Pi)
+                //val cosineTheta = randomRay.direction dot g.normalAt(p)
+                //val BRDF = m.reflectance / math.Pi
+                //
+                val incomingColor = colorOf(randomRay, geometry, depth + 1)
+                //
+                //m.emittance + (BRDF * incomingColor * cosineTheta / probability)
+                m.emittance + (m.reflectance * incomingColor)
+
+            }
 
         finalColor
     }
