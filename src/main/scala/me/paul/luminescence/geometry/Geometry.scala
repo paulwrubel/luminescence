@@ -1,6 +1,5 @@
 package me.paul.luminescence.geometry
 
-import me.paul.luminescence.geometry.primitive.ReverseNormals
 import me.paul.luminescence.shading.RayHit
 import me.paul.luminescence.shading.material.Material
 
